@@ -72,8 +72,7 @@ export function Chat({
                                 </div>
                                 <h2>Olá! Como posso ajudar?</h2>
                                 <p>
-                                    Registre seus gastos ou consulte seus resultados. Não
-                                    compartilhe senhas ou dados bancários na conversa.
+                                    Registre seus gastos ou consulte seus resultados. Os registros ficam neste navegador. Não compartilhe senhas ou dados bancários.
                                 </p>
                                 <div className="suggestions">
                                     {[
@@ -166,7 +165,7 @@ export function Chat({
                         <Sparkles color="#1754a5" size={24} />
                         <h3>Como funciona?</h3>
                         <p>
-                            Escreva suas movimentações em linguagem natural. Você confirma
+                            O assistente local interpreta lançamentos e consulta seus registros. Você confirma
                             antes de qualquer transação ser salva.
                         </p>
                     </div>

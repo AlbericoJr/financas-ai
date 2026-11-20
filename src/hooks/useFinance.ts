@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, request, errorMessage } from '../services/api';
-import type { Goal, GoalInput, Message, ModalState, Notify, Page, Pending, Report, Summary, Tx, TxInput, User } from '../types';
+import type { Goal, GoalInput, Message, ModalState, Notify, Page, Pending, Report, Summary, Tx, TxInput } from '../types';
 export function useFinance() {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
     const [page, setPage] = useState<Page>('home');
     const [dashboard, setDashboard] = useState<Summary | null>(null);
     const [transactions, setTransactions] = useState<Tx[]>([]);
@@ -28,16 +26,6 @@ export function useFinance() {
     };
     useEffect(() => () => { if (timer.current)
         clearTimeout(timer.current); }, []);
-    useEffect(() => {
-        let active = true;
-        api<User>('/me').then(u => { if (active)
-            setUser(u); }).catch(e => {
-            if (active && !(e instanceof Error && 'status' in e && e.status === 401))
-                setLoadError(errorMessage(e));
-        }).finally(() => { if (active)
-            setLoading(false); });
-        return () => { active = false; };
-    }, []);
     async function loadData() {
         const [d, t, g, r, c] = await Promise.all([
             api<Summary>('/dashboard'), api<Tx[]>('/transactions'), api<Goal[]>('/goals'),
@@ -48,6 +36,7 @@ export function useFinance() {
         setGoals(g);
         setReports(r);
         setMessages(Array.isArray(c) ? c : []);
+        setPending(await api<Pending | null>('/pending'));
         setLoadError('');
     }
     async function refresh() {
@@ -58,16 +47,15 @@ export function useFinance() {
             setLoadError(errorMessage(e));
         }
     }
-    useEffect(() => { if (user?.id)
-        void refresh(); }, [user?.id]);
+    useEffect(() => { void refresh(); }, []);
     useEffect(() => {
-        const theme = user?.profile?.theme || 'auto';
+        const theme = 'auto';
         const query = window.matchMedia('(prefers-color-scheme: dark)');
-        const apply = () => { document.documentElement.dataset.theme = theme === 'dark' || (theme === 'auto' && query.matches) ? 'dark' : 'light'; };
+        const apply = () => { document.documentElement.dataset.theme = query.matches ? 'dark' : 'light'; };
         apply();
         query.addEventListener('change', apply);
         return () => query.removeEventListener('change', apply);
-    }, [user?.profile?.theme]);
+    }, []);
     async function mutate(fn: () => Promise<void>, message?: string, reload = true) {
         if (inFlight.current)
             throw new Error('Aguarde a operação atual.');
@@ -88,19 +76,6 @@ export function useFinance() {
             inFlight.current = false;
             setBusy(false);
         }
-    }
-    async function login() { setUser(await api<User>('/me')); setPage('home'); setLoadError(''); }
-    function clearAccount() {
-        setUser(null);
-        setDashboard(null);
-        setTransactions([]);
-        setGoals([]);
-        setReports(null);
-        setMessages([]);
-        setPending(null);
-        setModal(null);
-        setPage('home');
-        setLoadError('');
     }
     async function saveTx(data: TxInput) {
         await mutate(async () => {
@@ -172,16 +147,5 @@ export function useFinance() {
         const id = pending.actionId;
         await mutate(async () => { await request('/chat/cancel/' + id, {}); setPending(null); }, 'Lançamento cancelado.').catch(() => { });
     }
-    async function saveProfile(data: Record<string, FormDataEntryValue>) {
-        await mutate(async () => { await request('/me', data, 'PATCH'); setUser(await api<User>('/me')); }, 'Perfil atualizado!');
-    }
-    async function logout() {
-        await mutate(async () => { await request('/auth/logout', {}); clearAccount(); }, undefined, false).catch(() => { });
-    }
-    async function deleteAccount() {
-        if (!window.confirm('Excluir PERMANENTEMENTE todos os seus dados?') || !window.confirm('Confirme a exclusão irreversível da conta.'))
-            return;
-        await mutate(async () => { await api('/me', { method: 'DELETE' }); clearAccount(); }, 'Conta excluída.', false).catch(() => { });
-    }
-    return { user, loading, page, setPage, dashboard, transactions, goals, reports, messages, pending, modal, setModal, busy, notice, notify, loadError, refresh, login, saveTx, saveGoal, contribute, delTx, delGoal, sendChat, confirmChat, cancelChat, saveProfile, logout, deleteAccount };
+    return { page, setPage, dashboard, transactions, goals, reports, messages, pending, modal, setModal, busy, notice, notify, loadError, refresh, saveTx, saveGoal, contribute, delTx, delGoal, sendChat, confirmChat, cancelChat };
 }
