@@ -27,3 +27,10 @@ test('CSV cells neutralize spreadsheet formulas and escape quotes',()=>{
   assert.equal(csvCell('=IMPORTXML("a","b")'),"\"'=IMPORTXML(\"\"a\"\",\"\"b\"\")\"");
   assert.equal(csvCell('normal'), '"normal"');
 });
+
+test('hosted API requires HTTPS origin and explicit persistent path',()=> {
+ const env={NODE_ENV:'production',API_ONLY:'true',SESSION_SECRET:'x'.repeat(48),DATA_DIR:'/var/data',APP_ORIGIN:'https://app.example.com'};
+ assert.doesNotThrow(()=>assertProductionConfig(env));
+ for(const invalid of [{DATA_DIR:undefined},{DATA_DIR:'data'},{APP_ORIGIN:undefined},{APP_ORIGIN:'http://app.example.com'},{APP_ORIGIN:'https://app.example.com/path'}])
+  assert.throws(()=>assertProductionConfig({...env,...invalid}));
+});
