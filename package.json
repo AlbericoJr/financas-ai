@@ -1,14 +1,14 @@
 {
   "name": "financas-ai",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "node --experimental-strip-types --watch server/app.ts",
+    "dev:api": "node --experimental-strip-types --watch server/local.ts",
     "dev:web": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "start": "node --experimental-strip-types server/app.ts",
+    "start": "node --experimental-strip-types server/local.ts",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
