@@ -65,3 +65,6 @@ Para executar o projeto no seu computador, você precisa ter o **Node.js 22.12 o
 O assistente não acessa sua conta bancária nem realiza pagamentos. Quando uma movimentação é sugerida pela conversa, você pode revisar e confirmar antes de registrá-la.
 
 Se o assistente estiver conectado a um serviço externo de inteligência artificial, sua mensagem e um resumo das suas finanças poderão ser enviados a esse serviço para gerar a resposta. Evite compartilhar senhas ou dados bancários na conversa.
+
+## Deploy
+Consulte [Vercel + Supabase](docs/DEPLOY.md).

@@ -8,7 +8,8 @@ export function Auth({ onAuth, notify }: {
     onAuth: () => Promise<void>;
     notify: Notify;
 }) { const [mode, setMode] = useState('login'), [loading, setLoading] = useState(false), [visible, setVisible] = useState(false); async function submit(e: FormEvent<HTMLFormElement>) { e.preventDefault(); const data = Object.fromEntries(new FormData(e.currentTarget)); setLoading(true); try {
-    await request('/auth/' + (mode === 'login' ? 'login' : 'register'), data);
+    const result = await request<{confirmationRequired?: boolean}>('/auth/' + (mode === 'login' ? 'login' : 'register'), data);
+    if (result.confirmationRequired) { notify('Confira seu e-mail e confirme a conta antes de entrar.'); setMode('login'); return; }
     await onAuth();
 }
 catch (err) {
