@@ -1,3 +1,12 @@
 node_modules/
+dist/
 .env
-data/*.sqlite*
+.env.*
+!.env.example
+/data/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+.vercel/
+*.tsbuildinfo

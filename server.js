@@ -8,6 +8,10 @@ import {fileURLToPath} from 'node:url';
 import fs from 'node:fs';
 import helmet from 'helmet';
 import {rateLimit} from 'express-rate-limit';
+import {assertProductionConfig,allowedOrigins,originAllowed,sessionToken} from './security.js';
+import {aiMode,interpretWithAI} from './ai-provider.js';
+
+assertProductionConfig(process.env);
 
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
 fs.mkdirSync(path.join(ROOT,'data'),{recursive:true});
@@ -25,6 +29,7 @@ CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,user_id TEXT NOT NULL RE
 CREATE TABLE IF NOT EXISTS pending_actions(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,kind TEXT NOT NULL,payload TEXT NOT NULL,created_at INTEGER NOT NULL);
 `);
 const app=express(); app.disable('x-powered-by');
+const aiRateLimit=rateLimit({windowMs:15*60*1000,limit:25,standardHeaders:'draft-8',legacyHeaders:false});
 app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'","https://fonts.googleapis.com"],fontSrc:["'self'","https://fonts.gstatic.com"],imgSrc:["'self'","data:"],connectSrc:["'self'"],objectSrc:["'none'"],upgradeInsecureRequests:process.env.NODE_ENV==='production'?[]:null}}}));
 app.use(express.json({limit:'35kb'}));
 app.use('/api',rateLimit({windowMs:15*60*1000,limit:500,standardHeaders:'draft-8',legacyHeaders:false}));
@@ -35,7 +40,14 @@ const money=(n)=>{let v=Number(n); if(!Number.isFinite(v)||v<=0||v>100000000)fai
 const text=(v,max=160)=>String(v??'').trim().slice(0,max);
 const dateValid=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v))&&!Number.isNaN(new Date(String(v)+'T12:00:00Z').valueOf())&&new Date(String(v)+'T12:00:00Z').toISOString().slice(0,10)===v;
 const isoDate=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Recife'});
-function checkOrigin(req,res,next){if(['POST','PATCH','PUT','DELETE'].includes(req.method)){const origin=req.get('origin');const host=req.get('host');if(origin){try{if(new URL(origin).host!==host)return res.status(403).json({error:'Origem não autorizada.'});}catch{return res.status(403).json({error:'Origem inválida.'});}}}next();}
+function checkOrigin(req,res,next){
+  const accepted=originAllowed({
+    origin:req.get('origin'),fetchSite:req.get('sec-fetch-site'),
+    method:req.method,contentType:req.get('content-type')
+  },allowedOrigins(process.env));
+  if(!accepted)return res.status(403).json({error:'Requisição bloqueada por política de origem ou tipo de conteúdo.'});
+  next();
+}
 app.use('/api',checkOrigin);
 function cookies(req){return Object.fromEntries((req.headers.cookie||'').split(';').map(x=>x.trim().split(/=(.*)/s).slice(0,2)).filter(p=>p.length===2));}
 function authorize(req,res,next){const token=cookies(req).fa_session;if(!token)return res.status(401).json({error:'Faça login para continuar.'});const s=db.prepare('SELECT user_id FROM sessions WHERE id=? AND expires_at>?').get(token,Date.now());if(!s)return res.status(401).json({error:'Sessão expirada.'});req.userId=s.user_id;req.sessionId=token;next();}
@@ -46,8 +58,8 @@ function saveMessage(u,role,content){db.prepare('INSERT INTO messages VALUES(?,?
 const getTransactions=(u)=>db.prepare('SELECT * FROM transactions WHERE user_id=? ORDER BY date DESC,created_at DESC').all(u);
 function summary(u,month){let all=getTransactions(u);const monthly=all.filter(t=>t.date.startsWith(month));const inc=monthly.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount_cents,0);const exp=monthly.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount_cents,0);const balance=all.reduce((a,t)=>a+(t.type==='income'?t.amount_cents:-t.amount_cents),0);const categories={};monthly.filter(t=>t.type==='expense').forEach(t=>categories[t.category]=(categories[t.category]||0)+t.amount_cents);return {income:inc/100,expenses:exp/100,balance:balance/100,available:(inc-exp)/100,categories:Object.entries(categories).map(([name,cents])=>({name,value:cents/100})).sort((a,b)=>b.value-a.value),count:monthly.length};}
 function validateTx(body){const type=body.type;if(!['income','expense'].includes(type))fail('Tipo inválido.');const amount_cents=money(body.amount);const category=text(body.category,40)||'Outros';const description=text(body.description,180)||category;const date=body.date||isoDate();if(!dateValid(date))fail('Data inválida.');return {type,amount_cents,category,description,date};}
-app.post('/api/auth/register',authLimit,(req,res)=>{const name=text(req.body.name,90),email=text(req.body.email,180).toLowerCase(),password=req.body.password;if(name.length<2||!/^\S+@\S+\.\S+$/.test(email)||typeof password!=='string'||password.length<8||password.length>128)fail('Informe nome, e-mail válido e senha de 8 a 128 caracteres.');if(db.prepare('SELECT id FROM users WHERE email=?').get(email))fail('E-mail já cadastrado.',409);const id=uid(),sid=uid();db.transaction(()=>{db.prepare('INSERT INTO users VALUES(?,?,?,?,?)').run(id,name,email,bcrypt.hashSync(password,12),now());db.prepare('INSERT INTO profiles(user_id) VALUES(?)').run(id);db.prepare('INSERT INTO sessions VALUES(?,?,?)').run(sid,id,Date.now()+7*86400000);})();cookie(res,sid,7*86400000);res.status(201).json({user:{id,name,email}});});
-app.post('/api/auth/login',authLimit,(req,res)=>{const email=text(req.body.email,180).toLowerCase(),pass=req.body.password;const u=db.prepare('SELECT * FROM users WHERE email=?').get(email);if(!u||typeof pass!=='string'||!bcrypt.compareSync(pass,u.password))fail('E-mail ou senha incorretos.',401);const sid=uid();db.prepare('INSERT INTO sessions VALUES(?,?,?)').run(sid,u.id,Date.now()+7*86400000);cookie(res,sid,7*86400000);res.json({user:{id:u.id,name:u.name,email:u.email}});});
+app.post('/api/auth/register',authLimit,(req,res)=>{const name=text(req.body.name,90),email=text(req.body.email,180).toLowerCase(),password=req.body.password;if(name.length<2||!/^\S+@\S+\.\S+$/.test(email)||typeof password!=='string'||password.length<8||password.length>128)fail('Informe nome, e-mail válido e senha de 8 a 128 caracteres.');if(db.prepare('SELECT id FROM users WHERE email=?').get(email))fail('E-mail já cadastrado.',409);const id=uid(),sid=sessionToken();db.transaction(()=>{db.prepare('INSERT INTO users VALUES(?,?,?,?,?)').run(id,name,email,bcrypt.hashSync(password,12),now());db.prepare('INSERT INTO profiles(user_id) VALUES(?)').run(id);db.prepare('INSERT INTO sessions VALUES(?,?,?)').run(sid,id,Date.now()+7*86400000);})();cookie(res,sid,7*86400000);res.status(201).json({user:{id,name,email}});});
+app.post('/api/auth/login',authLimit,(req,res)=>{const email=text(req.body.email,180).toLowerCase(),pass=req.body.password;const u=db.prepare('SELECT * FROM users WHERE email=?').get(email);if(!u||typeof pass!=='string'||!bcrypt.compareSync(pass,u.password))fail('E-mail ou senha incorretos.',401);const sid=sessionToken();db.prepare('INSERT INTO sessions VALUES(?,?,?)').run(sid,u.id,Date.now()+7*86400000);cookie(res,sid,7*86400000);res.json({user:{id:u.id,name:u.name,email:u.email}});});
 app.post('/api/auth/logout',authorize,(req,res)=>{db.prepare('DELETE FROM sessions WHERE id=?').run(req.sessionId);res.clearCookie('fa_session',{path:'/',sameSite:'strict',secure:process.env.NODE_ENV==='production'});res.json({ok:true});});
 app.get('/api/me',authorize,(req,res)=>{const u=db.prepare('SELECT id,name,email,created_at FROM users WHERE id=?').get(req.userId);const p=db.prepare('SELECT * FROM profiles WHERE user_id=?').get(req.userId);res.json({...u,profile:{monthly_income:p.monthly_income_cents/100,theme:p.theme,onboarded:!!p.onboarded}});});
 app.patch('/api/me',authorize,(req,res)=>{const name=text(req.body.name,90);if(name.length>=2)db.prepare('UPDATE users SET name=? WHERE id=?').run(name,req.userId);let p=db.prepare('SELECT * FROM profiles WHERE user_id=?').get(req.userId);let income=p.monthly_income_cents;if(req.body.monthly_income!==undefined){const v=Number(req.body.monthly_income);if(!Number.isFinite(v)||v<0||v>100000000)fail('Renda inválida.');income=Math.round(v*100);}const theme=['light','dark','auto'].includes(req.body.theme)?req.body.theme:p.theme;const onboarded=req.body.onboarded===undefined?p.onboarded:(req.body.onboarded?1:0);db.prepare('UPDATE profiles SET monthly_income_cents=?,theme=?,onboarded=? WHERE user_id=?').run(income,theme,onboarded,req.userId);res.json({ok:true});});
@@ -74,13 +86,51 @@ const type=incomeWords.some(w=>msg.includes(w.normalize('NFD').replace(/[\u0300-
 if(type){const amount=parseMoney(input.replace(/\b(hoje|ontem)\b/gi,''));if(!amount||amount<=0)return {reply:'Qual foi o valor em reais? Por exemplo: "Gastei R$ 35 no almoço hoje".',intent:'clarification'};const date=new Date(isoDate()+'T12:00:00Z');if(/ontem/.test(msg))date.setUTCDate(date.getUTCDate()-1);const category=classify(input,type);const description=text(input,180);return {reply:`Identifiquei ${type==='income'?'uma receita':'uma despesa'} de ${moneyBRL(amount)} em ${category}. Confirme para registrar.`,intent:'pending',action:{type,amount,category,description,date:date.toISOString().slice(0,10)}};}
 return {reply:'Posso registrar gastos e receitas, consultar seu saldo ou mostrar um resumo. Experimente: "Gastei 35 reais no almoço hoje".',intent:'help'};}
 app.get('/api/chat',authorize,(req,res)=>res.json(db.prepare('SELECT id,role,content,created_at FROM messages WHERE user_id=? ORDER BY created_at DESC LIMIT 80').all(req.userId).reverse()));
-app.post('/api/chat',authorize,(req,res)=>{const message=text(req.body.message,500);if(!message)fail('Digite uma mensagem.');const reply=parseChat(message,req.userId);saveMessage(req.userId,'user',message);let actionId=null;if(reply.action){actionId=uid();db.prepare('INSERT INTO pending_actions VALUES(?,?,?,?,?)').run(actionId,req.userId,'transaction',JSON.stringify(reply.action),Date.now());}saveMessage(req.userId,'assistant',reply.reply);res.json({reply:reply.reply,intent:reply.intent,actionId,action:reply.action||null,mode:'local'});});
-app.post('/api/chat/confirm/:id',authorize,(req,res)=>{const p=db.prepare('SELECT * FROM pending_actions WHERE id=? AND user_id=?').get(req.params.id,req.userId);if(!p)fail('Ação não encontrada ou já concluída.',404);if(Date.now()-p.created_at>15*60*1000){db.prepare('DELETE FROM pending_actions WHERE id=?').run(p.id);fail('Confirmação expirada. Envie a mensagem novamente.',410);}const t=validateTx({...JSON.parse(p.payload),...req.body});db.transaction(()=>{db.prepare('INSERT INTO transactions VALUES(?,?,?,?,?,?,?,?,?)').run(uid(),req.userId,t.type,t.amount_cents,t.category,t.description,t.date,'chat',now());db.prepare('DELETE FROM pending_actions WHERE id=? AND user_id=?').run(p.id,req.userId);})();saveMessage(req.userId,'assistant',`Registro confirmado: ${moneyBRL(t.amount_cents/100)} em ${t.category}.`);res.json({ok:true});});
+app.get('/api/ai/status',authorize,(req,res)=>res.json({mode:aiMode(),configured:aiMode()!=='local',provider:(process.env.AI_PROVIDER||'gemini').toLowerCase()}));
+app.post('/api/chat',authorize,aiRateLimit,async(req,res,next)=>{try{
+ const message=text(req.body.message,500);if(!message)fail('Digite uma mensagem.');
+ const mode=aiMode();let reply;
+ if(mode==='local') {reply=parseChat(message,req.userId);} else {
+   const {interpretation}=await interpretWithAI(message,{today:isoDate(),summary:summary(req.userId,isoDate().slice(0,7))});
+   if(interpretation.intent==='transaction'){
+     // Impede que o modelo invente valores, inclusive em saídas JSON aparentemente válidas.
+     const stated=parseMoney(message);
+     if(!stated||Math.abs(stated-interpretation.amount)>0.009){reply={intent:'clarification',reply:'Não consegui confirmar com segurança o valor da mensagem. Informe o valor em números, por exemplo: "Gastei R$ 35 no almoço".'};}
+     else if(!interpretation.date||!dateValid(interpretation.date)){reply={intent:'clarification',reply:'Qual é a data desta movimentação? Informe dia, mês e ano.'};}
+     else {const candidate={type:interpretation.type,amount:interpretation.amount,category:interpretation.category,description:interpretation.description||text(message,180),date:interpretation.date};
+       validateTx(candidate);
+       reply={intent:'pending',reply:`Identifiquei ${candidate.type==='income'?'uma receita':'uma despesa'} de ${moneyBRL(candidate.amount)} em ${candidate.category}, data ${candidate.date}. Confirme para registrar.`,action:candidate};}
+   } else if(interpretation.intent==='question') {
+      // Contas e totais sempre são computados pelo backend, nunca pela IA.
+      const local=parseChat(message,req.userId);
+      reply=local.intent==='query'||local.intent==='tip'?local:{intent:'question',reply:interpretation.reply||'Consulte suas receitas, despesas ou saldo do mês.'};
+   } else reply={intent:'help',reply:interpretation.reply||'Posso ajudar a registrar receitas, despesas e consultar seus resultados.'};
+ }
+ saveMessage(req.userId,'user',message);let actionId=null;
+ if(reply.action){actionId=uid();db.prepare('INSERT INTO pending_actions VALUES(?,?,?,?,?)').run(actionId,req.userId,'transaction',JSON.stringify(reply.action),Date.now());}
+ saveMessage(req.userId,'assistant',reply.reply);
+ res.json({reply:reply.reply,intent:reply.intent,actionId,action:reply.action||null,mode});
+ }catch(e){if(!e.status){console.error('Falha ao consultar provedor de IA:',e.name||'Error');return res.status(502).json({error:'Não foi possível consultar a IA. Verifique a chave, o modelo e o acesso ao serviço. Nenhuma transação foi salva.'});}next(e);}
+});
+app.post('/api/chat/confirm/:id',authorize,(req,res)=>{const p=db.prepare('SELECT * FROM pending_actions WHERE id=? AND user_id=?').get(req.params.id,req.userId);if(!p)fail('Ação não encontrada ou já concluída.',404);if(Date.now()-p.created_at>15*60*1000){db.prepare('DELETE FROM pending_actions WHERE id=?').run(p.id);fail('Confirmação expirada. Envie a mensagem novamente.',410);}const allowed={};for(const key of ['type','amount','category','description','date'])if(Object.hasOwn(req.body,key))allowed[key]=req.body[key];const t=validateTx({...JSON.parse(p.payload),...allowed});db.transaction(()=>{db.prepare('INSERT INTO transactions VALUES(?,?,?,?,?,?,?,?,?)').run(uid(),req.userId,t.type,t.amount_cents,t.category,t.description,t.date,'chat',now());db.prepare('DELETE FROM pending_actions WHERE id=? AND user_id=?').run(p.id,req.userId);})();saveMessage(req.userId,'assistant',`Registro confirmado: ${moneyBRL(t.amount_cents/100)} em ${t.category}.`);res.json({ok:true});});
 app.post('/api/chat/cancel/:id',authorize,(req,res)=>{db.prepare('DELETE FROM pending_actions WHERE id=? AND user_id=?').run(req.params.id,req.userId);res.json({ok:true});});
 app.get('/api/health',(req,res)=>res.json({ok:true,service:'Finanças AI'}));
-app.use(express.static(path.join(ROOT,'public')));
-app.get('/{*path}',(req,res)=>res.sendFile(path.join(ROOT,'public','index.html')));
+// Rotas desconhecidas da API jamais devem retornar HTML.
+app.use('/api',(req,res)=>res.status(404).json({error:'Endpoint não encontrado.'}));
+const distDir=path.join(ROOT,'dist');
+const indexFile=path.join(distDir,'index.html');
+if(process.env.NODE_ENV==='production') {
+  if(!fs.existsSync(indexFile)) throw new Error('Build ausente: execute npm run build antes de iniciar em produção.');
+  app.use(express.static(distDir));
+  app.get('/{*path}',(req,res)=>{
+    if(!req.accepts('html')||path.extname(req.path)) return res.sendStatus(404);
+    res.sendFile(indexFile);
+  });
+} else {
+  app.get('/',(req,res)=>res.type('text').send('API Finanças AI. Abra o frontend em http://localhost:5173.'));
+  app.use((req,res)=>res.status(404).json({error:'Rota não encontrada. Frontend de desenvolvimento: porta 5173.'}));
+}
 app.use((err,req,res,next)=>{console.error(err.message);res.status(err.status||500).json({error:err.status?err.message:'Erro interno no servidor.'});});
 const PORT=Number(process.env.PORT)||3000;
-if(process.env.NODE_ENV==='production'&&(!process.env.SESSION_SECRET||process.env.SESSION_SECRET.length<32))throw new Error('Defina SESSION_SECRET antes de usar em produção.');
+
 app.listen(PORT,()=>console.log(`Finanças AI em http://localhost:${PORT}`));

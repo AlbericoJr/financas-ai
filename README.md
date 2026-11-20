@@ -1,170 +1,115 @@
-# Finanças AI
+# Finanças AI | React + TypeScript + Vite
 
-Aplicação web de controle financeiro pessoal para registrar receitas e despesas, acompanhar metas e visualizar relatórios. Os dados ficam em um banco SQLite local, e o assistente permite consultar informações e preparar lançamentos em linguagem natural — sempre com confirmação antes de salvar.
+Aplicativo de finanças pessoais com dashboard, autenticação, transações, chat Gemini (ou OpenAI / local), metas, relatórios e CSV. CSS tradicional, layout responsivo, tema claro/escuro. A API Express conserva o esquema e o arquivo SQLite da versão anterior.
 
+## 1. Executar no Windows / VS Code
 
-## Visão geral
+Requisitos: Node.js 22.12 ou superior (recomendado 22 LTS atualizado), npm e terminal PowerShell.
 
-### Início
-
-Resumo do saldo acumulado a partir dos lançamentos cadastrados, movimentações do mês, transações recentes e despesas por categoria.
-
-![Painel inicial do Finanças AI](img/home.png)
-
-### Transações
-
-Cadastro manual de receitas e despesas, com edição, exclusão e filtros por texto, tipo e mês.
-
-![Tela de transações](img/Transa%C3%A7%C3%B5es.png)
-
-### Metas
-
-Criação e acompanhamento de objetivos financeiros, com valor desejado, prazo opcional e registro manual de contribuições.
-
-![Tela de metas financeiras](img/metas.png)
-
-### Relatórios
-
-Comparativo de receitas e despesas e resultados mensais dos últimos seis meses, além da distribuição das despesas por categoria.
-
-![Tela de relatórios](img/Relat%C3%B3rios.png)
-
-### Assistente financeiro
-
-Consultas e registro de receitas e despesas por mensagens em português. O assistente interpreta frases compatíveis com as regras locais e pede confirmação antes de criar uma transação.
-
-![Tela do assistente financeiro](img/chat.png)
-
-### Perfil e preferências
-
-Edição de nome, renda mensal estimada e aparência, com opções de tema claro, escuro ou automático. Também é possível sair ou excluir a conta e seus dados.
-
-![Tela de perfil](img/perfil.png)
-
-## Funcionalidades
-
-- Cadastro, login e logout com sessão.
-- Painel calculado com os lançamentos da conta.
-- Registro, edição, busca, filtragem e exclusão de receitas e despesas.
-- Categorias para organizar as movimentações.
-- Metas com prazo opcional e contribuições registradas manualmente.
-- Relatórios de receitas e despesas dos últimos seis meses.
-- Assistente local para consultas financeiras simples, dicas baseadas nos dados e preparação de transações com etapa de confirmação.
-- Perfil com renda mensal estimada e preferências de tema.
-- Layout responsivo, estados vazios e interface em português.
-
-## Tecnologias
-
-- **Servidor:** Node.js e Express 5.
-- **Interface:** HTML, CSS e JavaScript.
-- **Persistência:** SQLite com `better-sqlite3`.
-- **Autenticação:** senhas protegidas com `bcryptjs` e sessões armazenadas no banco.
-- **Proteções HTTP:** Helmet, limitação de requisições e validação de origem nas operações de escrita da API.
-
-## Requisitos
-
-- Node.js **20 ou superior**.
-- npm, incluído com o Node.js.
-
-## Instalação e execução
-
-No terminal, a partir da pasta do projeto:
-
-```bash
-npm ci
-npm start
+```powershell
+npm install
+Copy-Item .env.example .env
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```
 
-Abra [http://localhost:3000](http://localhost:3000) no navegador e crie uma conta.
+Cole o resultado em `SESSION_SECRET` no `.env`. Se você já possui o arquivo `.env`, preserve-o e não execute `Copy-Item` sobre ele. Configure a chave Gemini somente no `.env` da API. Sem chave, o assistente usa as regras locais. O modelo é configurável; confirme a disponibilidade para sua conta.
 
-Para desenvolvimento com reinicialização automática ao alterar arquivos:
+```dotenv
+PORT=3000
+NODE_ENV=development
+SESSION_SECRET=SUBSTITUA_POR_UMA_CHAVE_SEGURA
+AI_PROVIDER=gemini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+APP_ORIGIN=
+API_ONLY=false
+DATA_DIR=
+TRUST_PROXY_HOPS=
+```
 
-```bash
+```powershell
 npm run dev
 ```
 
-O servidor cria a pasta `data/` e o banco `data/financas.sqlite` na primeira execução, caso ainda não existam. A aplicação precisa ser executada pelo servidor Node.js; abrir `public/index.html` diretamente não inicia a API.
+Abra http://localhost:5173. A API fica na porta 3000. O proxy do Vite encaminha `/api` ao Express. Não é preciso criar `dist` para desenvolver. Se mudar PORT, ajuste também o destino do proxy no Vite. O `npm run build` verifica tipos do frontend e gera `dist/`.
 
-## Configuração
+## 2. Atualizar a versão anterior sem perder dados
 
-O servidor carrega variáveis de ambiente com `dotenv`. A porta padrão é `3000`; ela pode ser alterada definindo `PORT`. Para execução local, não é necessário configurar outras variáveis.
+Desligue os servidores. Faça uma cópia segura da pasta `data/` inteira, incluindo eventuais arquivos WAL/SHM, e do `.env`. Não coloque esses arquivos em Git ou no ZIP. Extraia esta versão em uma nova pasta, copie o `.env` e a pasta `data/` para a raiz do novo projeto e rode os comandos de instalação. O arquivo `data/financas.sqlite` continua usando o mesmo esquema. Guarde a versão anterior até concluir os testes.
 
-Em produção:
+## 3. Organização
 
-| Variável | Uso |
-| --- | --- |
-| `PORT` | Porta HTTP do servidor. Opcional; o padrão é `3000`. |
-| `NODE_ENV` | Defina como `production` para habilitar o atributo `Secure` no cookie de sessão. |
-| `SESSION_SECRET` | Segredo de sessão obrigatório em produção, com pelo menos 32 caracteres. |
-
-As variáveis podem ser definidas no ambiente de execução ou em um arquivo `.env` na raiz do projeto. Esse arquivo é ignorado pelo Git e não deve ser compartilhado nem versionado. No código atual, `SESSION_SECRET` é validada na inicialização em produção, mas não é usada para assinar ou criptografar as sessões: elas usam identificadores aleatórios armazenados no SQLite. Use HTTPS em produção.
-
-## Dados e privacidade
-
-- Os dados da aplicação são persistidos localmente em `data/financas.sqlite`; o SQLite também pode criar arquivos auxiliares `-wal` e `-shm`.
-- Não há integração com Supabase, PostgreSQL, Open Finance ou sincronização bancária.
-- As metas e contribuições são registros de acompanhamento: não movimentam dinheiro nem alteram o saldo das transações.
-- O saldo representa somente receitas menos despesas lançadas na aplicação; não é o saldo de uma conta bancária.
-- A exclusão da conta remove os dados associados. Não há rotina de backup ou recuperação automática.
-- Não use dados financeiros reais em uma implantação pública sem antes configurar e avaliar controles de produção, backups, monitoramento, privacidade e obrigações legais aplicáveis.
-
-## Limitações conhecidas
-
-- O assistente usa interpretação determinística de mensagens em português. Ele entende apenas os padrões implementados; frases ambíguas ou consultas complexas podem não ser reconhecidas.
-- As transações sugeridas pelo assistente precisam ser revisadas e confirmadas. A confirmação pendente expira após 15 minutos.
-- Metas devem ser criadas na tela **Metas**; o assistente não cria metas por conversa.
-- `OPENAI_API_KEY` não é necessária nem utilizada pela versão atual.
-- Não há recuperação de senha por e-mail, verificação de e-mail, autenticação multifator, Open Finance ou aconselhamento de investimentos.
-- A aplicação não inclui configuração de implantação, proxy reverso ou armazenamento gerenciado de sessões para produção.
-
-## Estrutura do projeto
-
-```text
-.
-├── data/                 # Banco SQLite e arquivos auxiliares gerados localmente
-├── img/                  # Capturas de tela incluídas neste README
-├── public/
-│   ├── app.js             # Interface e comunicação com a API
-│   ├── index.html         # Documento principal
-│   └── style.css          # Estilos, temas e layout responsivo
-├── package.json           # Scripts e dependências do projeto
-├── package-lock.json      # Versões resolvidas das dependências
-├── server.js              # API Express, autenticação e acesso ao SQLite
-└── README.md
+```
+src/
+  components/   UI compartilhada, formulários, modal e proteção do chat
+  pages/        Auth, Dashboard, Chat, Transactions, Goals, Reports, Profile
+  hooks/        Gerenciamento dos dados, ações e tema
+  layout/       Barra de navegação superior
+  services/     Cliente HTTP e tratamento de erros
+  types/        Contratos e tipos de domínio
+  lib/          Formatação, categorias, navegação
+  styles/       CSS e identidade visual
+  App.tsx       Composição das telas
+  main.tsx      Inicialização
+server/
+  app.ts        API Express e rotas
+  db/           Conexão e schema SQLite
+  lib/          Regras de segurança
+  services/     Integração de IA, somente servidor
+tests/          Testes unitários de segurança e IA
+vite.config.ts  Vite e proxy de desenvolvimento
+vercel.ts       Configuração de deploy do frontend e rewrite da API
 ```
 
-## API
+## 4. Publicação na Vercel (dois serviços)
 
-As rotas da aplicação usam o prefixo `/api`. Cadastro, login e verificação de saúde não exigem sessão; as demais rotas exigem uma sessão válida.
+**Não publique a API SQLite em uma Vercel Function usando um arquivo local:** o filesystem da função não oferece durabilidade e compartilhamento entre instâncias. Esta entrega mantém a compatibilidade com o banco existente e usa a Vercel para o frontend, com uma API Node em um host que ofereça disco persistente. Não existe ainda migração para banco remoto nem deploy efetivo. Você precisará de um host externo para o Express + SQLite (VPS ou outro serviço Node com volume persistente; verifique custos). Use uma única instância para a API SQLite, com backups e HTTPS.
 
-| Método | Rota | Descrição |
-| --- | --- | --- |
-| `GET` | `/api/health` | Verifica se o servidor está respondendo. |
-| `POST` | `/api/auth/register` | Cria uma conta. |
-| `POST` | `/api/auth/login` | Inicia uma sessão. |
-| `POST` | `/api/auth/logout` | Encerra a sessão atual. |
-| `GET`, `PATCH`, `DELETE` | `/api/me` | Consulta, atualiza ou exclui a conta atual. |
-| `GET` | `/api/dashboard` | Obtém os indicadores do painel. |
-| `GET`, `POST` | `/api/transactions` | Lista ou cria transações. |
-| `PATCH`, `DELETE` | `/api/transactions/:id` | Atualiza ou exclui uma transação. |
-| `GET`, `POST` | `/api/goals` | Lista ou cria metas. |
-| `PATCH`, `DELETE` | `/api/goals/:id` | Atualiza ou exclui uma meta. |
-| `POST` | `/api/goals/:id/contributions` | Registra uma contribuição para uma meta. |
-| `GET` | `/api/reports` | Obtém os dados dos relatórios. |
-| `GET`, `POST` | `/api/chat` | Consulta o histórico ou envia uma mensagem ao assistente. |
-| `POST` | `/api/chat/confirm/:id` | Confirma uma transação sugerida pelo assistente. |
-| `POST` | `/api/chat/cancel/:id` | Cancela uma transação pendente. |
+### A. Hospedar a API
 
-## Segurança
+1. Envie o código ao repositório, sem `.env`, sem banco, sem `dist` e sem `node_modules`.
+2. No host Node configure a instalação `npm install`, comando `npm start` e um volume persistente. Não é preciso instalar ou compilar o frontend para a API isolada.
+3. Cadastre as variáveis abaixo no ambiente privado do host. `APP_ORIGIN` deve ser a origem HTTPS exata do frontend Vercel. `PORT` geralmente é fornecida pelo próprio host; siga sua configuração. `DATA_DIR` deve apontar ao volume persistente real, jamais a uma pasta temporária. `TRUST_PROXY_HOPS` só deve ser definido conforme a topologia de proxies confiáveis do host.
 
-O projeto inclui hash de senhas com bcrypt, cookies de sessão `HttpOnly` e `SameSite=Strict`, consultas parametrizadas, verificação de propriedade dos registros, cabeçalhos HTTP pelo Helmet e limitadores de requisições. Essas medidas não substituem uma revisão de segurança nem uma configuração adequada para produção. Configure um `SESSION_SECRET` forte, HTTPS, backups protegidos e os controles operacionais necessários antes de disponibilizar o serviço a outras pessoas.
+```dotenv
+NODE_ENV=production
+API_ONLY=true
+SESSION_SECRET=SEGREDO_GERADO_NO_TERMINAL
+AI_PROVIDER=gemini
+GEMINI_API_KEY=CHAVE_REAL_GEMINI
+GEMINI_MODEL=gemini-2.5-flash
+APP_ORIGIN=https://seu-front-end.vercel.app
+DATA_DIR=/caminho/do/volume/persistente
+```
 
-## Testes
+4. Confirme que `https://seu-host-api.example/api/health` retorna JSON com `ok: true`. Se for transportar dados existentes, faça migração/backup seguro diretamente no volume; não utilize GitHub. Não exponha o arquivo SQLite por uma rota pública.
 
-Execute os testes disponíveis com:
+### B. Hospedar o React na Vercel
 
-```bash
+1. Importe o mesmo repositório na Vercel, com Root Directory na raiz e Framework Preset Vite. Escolha Node 22.x. Build Command `npm run build`, Output Directory `dist`.
+2. Cadastre `API_ORIGIN` nas Environment Variables da Vercel (somente o endereço HTTPS da API, sem caminho). Exemplo fictício: `https://api.seudominio.com`. O arquivo `vercel.ts` gera o rewrite `/api/*` para o host. A Vercel não precisa receber a chave Gemini nem acessar o SQLite neste desenho. Não use prefixo VITE_ em nenhum segredo.
+3. Faça o deploy. Se o domínio público mudar, ajuste `APP_ORIGIN` no host da API e reinicie. Para ambientes Preview use uma API separada com a origem exata correspondente; esta versão autoriza apenas uma origem de produção.
+4. Teste registro, login, cookies HttpOnly/Secure, leitura e escrita pela origem correta, logout, chat, metas e persistência dos dados após reiniciar o servidor. Verifique que `/api/health` via Vercel retorna JSON e que `/api/rota-inexistente` retorna 404 JSON.
+
+Referências: https://vercel.com/docs/frameworks/frontend/vite ; https://vercel.com/docs/routing/rewrites ; https://vercel.com/docs/project-configuration/vercel-ts ; https://vercel.com/docs/marketplace-storage .
+
+### Publicar todos os serviços na Vercel
+
+Para uma arquitetura integralmente serverless, será necessário migrar o acesso síncrono ao SQLite para uma base remota durável (por exemplo PostgreSQL ou Turso), reimplementar o ciclo de conexão da API e validar transações concorrentes. Isso NÃO foi realizado nesta versão para não substituir silenciosamente o banco funcional anterior.
+
+## 5. Testes e segurança
+
+```powershell
 npm test
+npm run typecheck
+npm run build
+npm audit
 ```
 
-O comando usa o executor de testes nativo do Node.js. No estado atual do projeto, ainda não há arquivos de teste automatizados.
+Use Node 22.12+ com a opção de remoção de tipos, já presente nos scripts do servidor. O TypeScript do frontend usa `strict: true`. O backend foi convertido para `.ts` para manutenção, com tipos em fronteiras importantes, mas a checagem semântica completa e estrita do servidor ainda não foi validada. Não há chave real no pacote. `.env` e `data/` ficam ignorados. Operações são autorizadas por usuário, cookies HttpOnly/SameSite/Secure em produção, confirmação para gravações do chat e proteção de origem preservada. Os endpoints de API retornam `Cache-Control: private, no-store`.
+
+**Privacidade:** quando Gemini/OpenAI está ativo, a mensagem e o resumo financeiro agregado do usuário são enviados ao provedor. Informe essa prática aos usuários, revise as condições de dados/LGPD e não use dados reais sem os testes finais. A IA não tem acesso direto ao banco, e não realiza transferências bancárias. Não foi implementada recuperação de senha por e-mail.
+
+Em 20/11/2026: 10 testes unitários anteriores executados com sucesso no ambiente de revisão; sintaxe TypeScript verificada. A resolução do registry npm falhou neste ambiente, então a instalação, verificação semântica com dependências reais, build Vite, auditoria npm, verificação visual no navegador, testes integrados e deploy Vercel ainda precisam ser executados. Não há validação ponta a ponta ou garantia de prontidão comercial.
