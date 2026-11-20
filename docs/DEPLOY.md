@@ -9,3 +9,6 @@ Em Supabase Authentication > URL Configuration, configure Site URL e redirects p
 ## Verificações antes da liberação
 Faça cadastro, confirmação, login, recarga, logout, edição e exclusão; use duas contas para comprovar isolamento. Teste receitas, despesas, metas, relatórios, confirmação concorrente de chat e Gemini real. Verifique /api/health e /api/ai/status autenticado. O limite por usuário de IA é persistente (25/hora). Limite de login no processo não é global; configure proteção de abuso no provedor e Vercel. Sessão permanece em cookies HttpOnly; quando expirar, o bootstrap /me pode renovar. Recarregue ao expirar durante o uso. Não importe dados SQLite sem backup e mapeamento de novas contas. A migração não importou dados reais.
 Não publique para usuários reais até os testes completos, privacidade/consentimento para envio de resumos financeiros à IA, recuperação de conta e revisão de segurança estarem aprovados.
+
+## Diagnóstico de API
+Abra /api/health no domínio publicado. A resposta deve ser JSON, com ok e supabaseConfigured verdadeiros. Isto verifica a presença da configuração, não a validade das chaves. HTML ou 404 indica problema de rota/deploy; 500 de plataforma exige logs da função. Confira o commit publicado e as variáveis no ambiente correspondente.

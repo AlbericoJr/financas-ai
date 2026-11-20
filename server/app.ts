@@ -155,7 +155,7 @@ res.json({reply:reply.reply,intent:reply.intent,actionId,action:reply.action||nu
 }catch(e){if(e instanceof RemoteError)throw e;throw new RemoteError(502,'Não foi possível consultar o assistente. Nenhuma transação foi registrada.');}});
 app.post('/api/chat/confirm/:id',authorize,async(req,res)=>{const {token,user}=ctx(req);const p=existing(await data('pending_actions',token,'GET',{...owner(req),id:'eq.'+req.params.id}),'Ação não encontrada.');if(Date.now()-Date.parse(p.created_at)>900000)fail('Confirmação expirada.',410);const allowed:any={};for(const k of ['type','amount','category','description','date'])if(Object.hasOwn(req.body,k))allowed[k]=req.body[k];const t=validateTx({...p.payload,...allowed});await rpc('confirm_transaction',token,{p_id:p.id,p_type:t.type,p_amount:t.amount_cents,p_category:t.category,p_description:t.description,p_date:t.date});res.json({ok:true});});
 app.post('/api/chat/cancel/:id',authorize,async(req,res)=>{await data('pending_actions',ctx(req).token,'DELETE',{...owner(req),id:'eq.'+req.params.id});res.json({ok:true});});
-app.get('/api/health',(_req,res)=>res.json({ok:true,service:'Finanças AI'}));
+app.get('/api/health',(_req,res)=>{const supabaseConfigured=Boolean(process.env.SUPABASE_URL&&process.env.SUPABASE_PUBLISHABLE_KEY);res.status(supabaseConfigured?200:503).json({ok:supabaseConfigured,service:'Finanças AI',supabaseConfigured});});
 app.use('/api',(_req,res)=>res.status(404).json({error:'Endpoint não encontrado.'}));
 app.use((err:any,_req:Request,res:Response,_next:NextFunction)=>{const status=err instanceof RemoteError?err.status:err?.status===400?400:500;res.status(status).json({error:err instanceof RemoteError?err.message:'Erro interno no servidor.'});});
 export default app;

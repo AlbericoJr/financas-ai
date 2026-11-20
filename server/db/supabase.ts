@@ -1,6 +1,7 @@
 // Supabase HTTPS API; no database password or browser-side secret.
 export class RemoteError extends Error {
- constructor(public status:number, message:string) { super(message); }
+ readonly status: number;
+ constructor(status:number, message:string) { super(message); this.name='RemoteError'; this.status=status; }
 }
 export function settings(){
  const url=process.env.SUPABASE_URL, key=process.env.SUPABASE_PUBLISHABLE_KEY;

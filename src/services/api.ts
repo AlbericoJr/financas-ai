@@ -5,7 +5,7 @@ export async function api<T = unknown>(path: string, options: RequestInit = {}):
     data = await res.json();
 }
 catch {
-    throw new ApiError('Resposta inválida da API. Verifique se o servidor está em execução.', res.status);
+    throw new ApiError(`A API retornou uma resposta inválida (HTTP ${res.status}). Verifique /api/health e os logs do servidor.`, res.status);
 } if (!res.ok)
     throw new ApiError(data?.error || `Erro ${res.status}`, res.status); return data as T; }
 export const request = <T = unknown>(path: string, data: unknown, method = 'POST') => api<T>(path, { method, body: JSON.stringify(data) });
