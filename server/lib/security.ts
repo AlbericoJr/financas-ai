@@ -1,15 +1,3 @@
-import crypto from 'node:crypto';
-export function assertProductionConfig(env: Record<string, string | undefined>) {
-    if (env.NODE_ENV !== 'production')
-        return;
-    const secret = env.SESSION_SECRET || '';
-    if (secret.length < 32 || secret.includes('SUBSTITUA') || secret.includes('COLOQUE_AQUI') || secret.includes('CHANGE_ME')) {
-        throw new Error('SESSION_SECRET forte é obrigatório em produção.');
-    }
-    if (env.OPENAI_API_KEY && env.OPENAI_API_KEY.startsWith('VITE_')) {
-        throw new Error('Configuração de chave de API inválida.');
-    }
-}
 export function allowedOrigins(env: Record<string, string | undefined>) {
     const ports = ['http://localhost:5173', 'http://127.0.0.1:5173'];
     if (env.NODE_ENV === 'production')
@@ -43,4 +31,3 @@ export function csvCell(value: unknown) {
         cell = "'" + cell;
     return '"' + cell.replaceAll('"', '""') + '"';
 }
-export function sessionToken() { return crypto.randomBytes(32).toString('base64url'); }
