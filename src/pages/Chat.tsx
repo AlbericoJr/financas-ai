@@ -46,7 +46,7 @@ export function Chat({
             <Head
                 eyebrow="ASSISTENTE FINANCEIRO"
                 title="Chat financeiro"
-                subtitle="Converse naturalmente sobre seus registros financeiros."
+                subtitle="Registre e consulte suas finanças com o assistente local."
             />
             <div className="chat-layout">
                 <section className="card chat-main">

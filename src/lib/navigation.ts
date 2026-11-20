@@ -5,4 +5,4 @@ export const nav: [
     Page,
     string,
     LucideIcon
-][] = [['home', 'Início', LayoutDashboard], ['chat', 'Chat IA', MessageCircle], ['transactions', 'Transações', WalletCards], ['goals', 'Metas', Target], ['reports', 'Relatórios', ChartNoAxesCombined]];
+][] = [['home', 'Início', LayoutDashboard], ['chat', 'Assistente', MessageCircle], ['transactions', 'Transações', WalletCards], ['goals', 'Metas', Target], ['reports', 'Relatórios', ChartNoAxesCombined]];

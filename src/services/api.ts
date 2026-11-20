@@ -1,6 +1,6 @@
-import type {TxInput,GoalInput} from '../types';
-import {read,write,id,validateTx,validateGoal,summarize,suggest} from './localStore';
-import {today} from '../lib/format';
+import type {TxInput,GoalInput} from '../types/index.ts';
+import {read,write,id,validateTx,validateGoal,summarize,suggest} from './localStore.ts';
+import {today} from '../lib/format.ts';
 function as<T>(v:unknown):T{return v as T;}
 export async function api<T=unknown>(path:string,options:RequestInit={}):Promise<T>{
  const s=read(),method=options.method||'GET',body=options.body?JSON.parse(String(options.body)):{},parts=path.split('/').filter(Boolean);

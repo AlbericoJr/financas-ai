@@ -1,5 +1,5 @@
-import type { Tx, TxInput, Goal, GoalInput, Message, Pending, Summary } from '../types';
-import { today, money } from '../lib/format';
+import type { Tx, TxInput, Goal, GoalInput, Message, Pending, Summary } from '../types/index.ts';
+import { today, money } from '../lib/format.ts';
 type State={transactions:Tx[];goals:Goal[];messages:Message[];pending:Pending|null};
 const KEY='financas-ai.local.v1';
 export function read():State {
@@ -33,7 +33,7 @@ export function suggest(message:string,s:Summary):{reply:string;action:TxInput|n
  const normalized=message.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const type=/\b(recebi|ganhei|vendi)\b/.test(normalized)?'income':/\b(gastei|paguei|comprei)\b/.test(normalized)?'expense':null;
  if(type){
- const matches=[...message.matchAll(/(?:R\$\s*)?(\d+(?:\.\d{3})*(?:,\d{1,2})?|\d+\.\d{1,2})(?![\d.,])/gi)]; 
+ const matches=[...message.matchAll(/(?:R\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![\d.,])/gi)]; 
  if(matches.length!==1)return {reply:'Informe um único valor em reais para o lançamento.',action:null};
  const raw=matches[0][1];const amount=Number(raw.includes(',')?raw.replaceAll('.','').replace(',','.'): /^\d{1,3}(\.\d{3})+$/.test(raw)?raw.replaceAll('.',''):raw);
  const date=new Date(today()+'T12:00:00Z');if(/\bontem\b/.test(normalized))date.setUTCDate(date.getUTCDate()-1);

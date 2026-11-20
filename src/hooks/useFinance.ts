@@ -49,7 +49,6 @@ export function useFinance() {
     }
     useEffect(() => { void refresh(); }, []);
     useEffect(() => {
-        const theme = 'auto';
         const query = window.matchMedia('(prefers-color-scheme: dark)');
         const apply = () => { document.documentElement.dataset.theme = query.matches ? 'dark' : 'light'; };
         apply();
