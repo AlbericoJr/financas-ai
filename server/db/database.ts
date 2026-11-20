@@ -6,7 +6,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 if (process.env.VERCEL)
     throw new Error('SQLite local não é armazenamento persistente na Vercel. Use o host da API.');
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, 'data');
-fs.mkdirSync(DATA_DIR, { recursive: true });
+// In hosted API mode, refuse to create a missing storage directory.
+if (process.env.NODE_ENV === 'production' && process.env.API_ONLY === 'true') {
+    if (!process.env.DATA_DIR || !path.isAbsolute(process.env.DATA_DIR) || !fs.existsSync(DATA_DIR) || !fs.statSync(DATA_DIR).isDirectory())
+        throw new Error('Configure e monte o disco persistente antes de iniciar a API.');
+} else {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 export const db = new Database(path.join(DATA_DIR, 'financas.sqlite'));
 export { ROOT };
 db.pragma('journal_mode = WAL');
