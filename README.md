@@ -21,7 +21,6 @@ O Finanças AI é um espaço simples para você cuidar da sua vida financeira no
 - **Conversar com o assistente:** pergunte sobre seus registros ou descreva uma movimentação. Você confirma antes de ela ser adicionada.
 - **Planejar metas:** escolha um objetivo, defina quanto quer juntar e acompanhe seu progresso.
 - **Entender sua evolução:** compare receitas e despesas e veja como seus resultados mudam ao longo dos meses.
-- **Personalizar seu espaço:** atualize suas informações e escolha a aparência que preferir.
 - **Levar seus registros com você:** exporte suas movimentações para uma planilha.
 
 ## 📸 Veja por dentro
@@ -37,7 +36,6 @@ O Finanças AI é um espaço simples para você cuidar da sua vida financeira no
   </tr>
   <tr>
     <td align="center"><strong>Assistente financeiro</strong><br><img src="src/assets/Chat%20IA-print.png" alt="Conversa com o assistente financeiro" width="100%"></td>
-    <td align="center"><strong>Perfil</strong><br><img src="src/assets/Perfil-print.png" alt="Perfil e preferências da conta" width="100%"></td>
   </tr>
 </table>
 
@@ -58,13 +56,13 @@ Para executar o projeto no seu computador, você precisa ter o **Node.js 22.12 o
    npm run dev
    ```
 
-4. Acesse [http://localhost:5173](http://localhost:5173) no navegador e crie sua conta.
+4. Acesse [http://localhost:5173](http://localhost:5173) no navegador e comece a usar.
 
 ## 🔒 Um cuidado importante
 
 O assistente não acessa sua conta bancária nem realiza pagamentos. Quando uma movimentação é sugerida pela conversa, você pode revisar e confirmar antes de registrá-la.
 
-Se o assistente estiver conectado a um serviço externo de inteligência artificial, sua mensagem e um resumo das suas finanças poderão ser enviados a esse serviço para gerar a resposta. Evite compartilhar senhas ou dados bancários na conversa.
+Os registros ficam no armazenamento local deste navegador, sem conta, sincronização ou backup automático. Não use um navegador compartilhado para dados privados. Exporte transações regularmente.
 
 ## Deploy
-Consulte [Vercel + Supabase](docs/DEPLOY.md).
+Consulte [Vercel — versão local](docs/DEPLOY.md).

@@ -1,4 +1,4 @@
-export type Page = 'home' | 'chat' | 'transactions' | 'goals' | 'reports' | 'profile';
+export type Page = 'home' | 'chat' | 'transactions' | 'goals' | 'reports';
 export type TxInput = {
     type: 'income' | 'expense';
     amount: number;
@@ -43,16 +43,6 @@ export type Message = {
 export type Pending = {
     actionId: string;
     action: TxInput;
-};
-export type User = {
-    id: string;
-    name: string;
-    email: string;
-    profile: {
-        theme: 'light' | 'dark' | 'auto';
-        monthly_income: number;
-        onboarded: boolean;
-    };
 };
 export type Notify = (msg: string, type?: 'success' | 'error') => void;
 export type ModalState = {
